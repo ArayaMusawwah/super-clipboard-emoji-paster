@@ -1,9 +1,13 @@
 #!/bin/bash
 
+# Ambil direktori tempat skrip ini berada
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON_HELPER="$SCRIPT_DIR/paste_helper.py"
+
 # Type: clipboard (default) or emoji
 MODE=${1:-clipboard}
-TIMEOUT=15 # seconds
-INTERVAL=0.1 # seconds
+TIMEOUT=15 # detik
+INTERVAL=0.1 # detik
 
 # Fungsi untuk mengambil isi clipboard
 get_clipboard() {
@@ -12,16 +16,20 @@ get_clipboard() {
 
 OLD_CONTENT=$(get_clipboard)
 
-# Munculkan UI
-if [ "$MODE" == "emoji" ]; then
-    # Jalankan emojier
-    plasma-emojier &
-else
-    # Jalankan klipper popup
-    qdbus6 org.kde.klipper /klipper showKlipperPopupMenu
+# Cek perintah DBus yang tersedia
+DBUS_CMD="qdbus6"
+if ! command -v qdbus6 >/dev/null; then
+    DBUS_CMD="qdbus"
 fi
 
-# Loop deteksi perubahan
+# Munculkan UI
+if [ "$MODE" == "emoji" ]; then
+    plasma-emojier &
+else
+    $DBUS_CMD org.kde.klipper /klipper showKlipperPopupMenu
+fi
+
+# Loop deteksi perubahan clipboard
 START_TIME=$(date +%s)
 while true; do
     CURRENT_TIME=$(date +%s)
@@ -32,16 +40,17 @@ while true; do
     CURRENT_CONTENT=$(get_clipboard)
     
     if [[ "$CURRENT_CONTENT" != "$OLD_CONTENT" ]]; then
-        # Khusus Emoji: Kita harus menutup aplikasinya agar fokus kembali
+        # Khusus Emoji: Tutup UI agar fokus kembali ke aplikasi asal
         if [ "$MODE" == "emoji" ]; then
             pkill plasma-emojier
+            sleep 0.2
         fi
 
-        # Jeda krusial agar UI tertutup dan fokus kembali ke aplikasi tujuan
-        sleep 0.5
+        # Jeda krusial agar jendela UI benar-benar tertutup dan fokus kembali
+        sleep 0.3
         
-        # Panggil helper Python dengan sudo
-        sudo python /home/root_iqbal/Codes/project-emote_clipboard/bin/paste_helper.py
+        # Jalankan helper Python (Pastikan user sudah masuk grup 'input' agar tidak butuh sudo)
+        python3 "$PYTHON_HELPER"
         
         exit 0
     fi
