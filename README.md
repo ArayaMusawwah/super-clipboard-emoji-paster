@@ -22,25 +22,27 @@ sudo pacman -S wl-clipboard python-evdev
 ```
 
 ### 2. Izin Akses `/dev/uinput`
-Agar Python dapat mensimulasikan keyboard tanpa `sudo` terus-menerus (disarankan menggunakan udev rules):
+Agar Python dapat mensimulasikan keyboard tanpa `sudo` (diperlukan agar skrip otomatis berjalan lancar):
 ```bash
 echo 'KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"' | sudo tee /etc/udev/rules.d/80-uinput.rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
 sudo usermod -aG input $USER
 ```
-*Catatan: Anda mungkin perlu logout dan login kembali agar grup `input` aktif.*
+*Catatan: Anda perlu logout dan login kembali agar grup `input` aktif, atau jalankan `newgrp input` di terminal sesi saat ini.*
 
 ## Konfigurasi Shortcut KDE
+
+Skrip ini sekarang secara otomatis mendeteksi jalurnya sendiri, sehingga Anda hanya perlu mendaftarkan path absolutnya sekali.
 
 1. Buka **System Settings** -> **Keyboard** -> **Shortcuts**.
 2. Klik **Commands** -> **Add New**.
 3. **Clipboard Mode**:
    - Name: `Smart Clipboard Paste`
-   - Command: `/path/ke/proyek/bin/smart-paste.sh clipboard`
+   - Command: `/home/root_iqbal/Codes/project-emote_clipboard/bin/smart-paste.sh clipboard`
    - Shortcut: `Meta+V`
 4. **Emoji Mode**:
    - Name: `Smart Emoji Paste`
-   - Command: `/path/ke/proyek/bin/smart-paste.sh emoji`
+   - Command: `/home/root_iqbal/Codes/project-emote_clipboard/bin/smart-paste.sh emoji`
    - Shortcut: `Meta+.`
 
 ## Struktur Proyek
