@@ -38,11 +38,11 @@ Skrip ini sekarang secara otomatis mendeteksi jalurnya sendiri, sehingga Anda ha
 2. Klik **Commands** -> **Add New**.
 3. **Clipboard Mode**:
    - Name: `Smart Clipboard Paste`
-   - Command: `/home/root_iqbal/Codes/project-emote_clipboard/bin/smart-paste.sh clipboard`
+   - Command: `/path/to/your/project/bin/smart-paste.sh clipboard`
    - Shortcut: `Meta+V`
 4. **Emoji Mode**:
    - Name: `Smart Emoji Paste`
-   - Command: `/home/root_iqbal/Codes/project-emote_clipboard/bin/smart-paste.sh emoji`
+   - Command: `/path/to/your/project/bin/smart-paste.sh emoji`
    - Shortcut: `Meta+.`
 
 ## Struktur Proyek
