@@ -1,59 +1,87 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Ambil direktori tempat skrip ini berada
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TRIGGER="$SCRIPT_DIR/paste_trigger"
+NATIVE_HELPER="$SCRIPT_DIR/paste_helper"
 PYTHON_HELPER="$SCRIPT_DIR/paste_helper.py"
 
-# Type: clipboard (default) or emoji
 MODE=${1:-clipboard}
-TIMEOUT=15 # detik
-INTERVAL=0.1 # detik
+TIMEOUT=15
 
-# Fungsi untuk mengambil isi clipboard
-get_clipboard() {
-    wl-paste -n 2>/dev/null
+do_paste() {
+    if [[ -S "/tmp/smart_paste.sock" ]]; then
+        "$TRIGGER"
+    elif [[ -x "$NATIVE_HELPER" ]]; then
+        "$NATIVE_HELPER"
+    else
+        python3 "$PYTHON_HELPER"
+    fi
 }
 
-OLD_CONTENT=$(get_clipboard)
-
-# Cek perintah DBus yang tersedia
 DBUS_CMD="qdbus6"
 if ! command -v qdbus6 >/dev/null; then
     DBUS_CMD="qdbus"
 fi
 
-# Munculkan UI
-if [ "$MODE" == "emoji" ]; then
+if [[ "$MODE" == "emoji" ]]; then
+    OLD_CONTENT=$(wl-paste -n 2>/dev/null)
     plasma-emojier &
-else
-    $DBUS_CMD org.kde.klipper /klipper showKlipperPopupMenu
-fi
 
-# Loop deteksi perubahan clipboard
-START_TIME=$(date +%s)
-while true; do
-    CURRENT_TIME=$(date +%s)
-    if (( CURRENT_TIME - START_TIME > TIMEOUT )); then
-        exit 0
-    fi
-
-    CURRENT_CONTENT=$(get_clipboard)
-    
-    if [[ "$CURRENT_CONTENT" != "$OLD_CONTENT" ]]; then
-        # Khusus Emoji: Tutup UI agar fokus kembali ke aplikasi asal
-        if [ "$MODE" == "emoji" ]; then
-            pkill plasma-emojier
-            sleep 0.2
+    START_TIME=$(date +%s)
+    while true; do
+        NOW=$(date +%s)
+        if (( NOW - START_TIME > TIMEOUT )); then
+            exit 0
         fi
 
-        # Jeda krusial agar jendela UI benar-benar tertutup dan fokus kembali
-        sleep 0.3
-        
-        # Jalankan helper Python (Pastikan user sudah masuk grup 'input' agar tidak butuh sudo)
-        python3 "$PYTHON_HELPER"
-        
-        exit 0
-    fi
-    
-    sleep $INTERVAL
-done
+        CURRENT_CONTENT=$(wl-paste -n 2>/dev/null)
+        if [[ "$CURRENT_CONTENT" != "$OLD_CONTENT" ]]; then
+            pkill plasma-emojier 2>/dev/null
+            sleep 0.15
+            do_paste
+            exit 0
+        fi
+        sleep 0.03
+    done
+else
+    # 1. Catat konten clipboard awal
+    OLD_CONTENT=$(wl-paste -n 2>/dev/null)
+
+    # 2. Munculkan popup Klipper
+    $DBUS_CMD org.kde.klipper /klipper showKlipperPopupMenu &
+
+    # 3. Dengarkan event Klipper via gdbus monitor ATAU perubahan wl-paste
+    # Catatan: gdbus monitor menangkap sinyal clipboardHistoryUpdated seketika
+    (
+        gdbus monitor --session --dest org.kde.klipper --object-path /klipper 2>/dev/null | grep -m 1 "clipboardHistoryUpdated" >/dev/null
+    ) &
+    DBUS_PID=$!
+
+    START_TIME=$(date +%s)
+    while true; do
+        NOW=$(date +%s)
+        if (( NOW - START_TIME > TIMEOUT )); then
+            kill $DBUS_PID 2>/dev/null
+            exit 0
+        fi
+
+        # Cek apakah DBus signal sudah terpicu
+        if ! kill -0 $DBUS_PID 2>/dev/null; then
+            # Sinyal Klipper terdeteksi! Jeda agar popup Klipper selesai menutup dan target window aktif
+            sleep 0.18
+            do_paste
+            exit 0
+        fi
+
+        # Fallback jika item clipboard yang dipilih adalah item teratas (DBus tidak selalu emit signal)
+        CURRENT_CONTENT=$(wl-paste -n 2>/dev/null)
+        if [[ "$CURRENT_CONTENT" != "$OLD_CONTENT" ]]; then
+            kill $DBUS_PID 2>/dev/null
+            sleep 0.18
+            do_paste
+            exit 0
+        fi
+
+        sleep 0.03
+    done
+fi

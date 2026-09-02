@@ -1,54 +1,20 @@
 # KDE Smart Paste (Wayland)
 
-Solusi "Select to Paste" otomatis untuk KDE Plasma 6 di Wayland. Skrip ini meniru perilaku Windows (`Meta+V` / `Meta+.`) di mana memilih item dari Clipboard Manager atau Emoji Selector akan langsung melakukan *paste* (`Ctrl+V`) ke aplikasi yang sedang aktif.
+Solusi "Select to Paste" otomatis untuk KDE Plasma 6 di Wayland. Skrip ini meniru perilaku Windows (`Meta+V` / `Meta+.`) di mana memilih item dari Clipboard Manager atau Emoji Selector akan langsung melakukan *paste* (`Ctrl+V`) ke aplikasi yang sedang aktif dengan latensi sub-50ms.
 
 ## Fitur
+- **Ultra Low Latency (< 50ms)**: Menggunakan daemon background virtual keyboard (`smart_paste_daemon`) via Unix Domain Socket.
 - **Auto-Paste Clipboard**: Pilih item dari history clipboard, langsung menempel.
 - **Auto-Paste Emoji**: Pilih emoji, jendela emoji tertutup, dan emoji langsung menempel.
 - **Wayland Native**: Didesain khusus untuk KDE Plasma 6 di Wayland.
-- **Low-Level Simulation**: Menggunakan Python `evdev` untuk simulasi keyboard yang presisi.
 
-## Persyaratan Sistem
-- **KDE Plasma 6** (Wayland session)
-- **wl-clipboard** (untuk akses clipboard di Wayland)
-- **python-evdev** (untuk simulasi input keyboard)
+## Struktur Komponen
+1. **`smart_paste_daemon`**: Daemon background C yang menjaga virtual keyboard `/dev/uinput` tetap terbuka dan siap memicu `Ctrl+V` dalam 1 milidetik via `/tmp/smart_paste.sock`.
+2. **`paste_trigger`**: Binary C kecil untuk mengirim sinyal ke daemon secara instan (~1ms).
+3. **`smart-paste.sh`**: Orchestrator utama yang menampilkan menu KDE dan mendengarkan event perubahan clipboard.
 
-## Instalasi
-
-### 1. Install Dependensi
-Untuk pengguna Arch Linux/CachyOS:
+## Systemd Service
+Daemon berjalan otomatis saat login:
 ```bash
-sudo pacman -S wl-clipboard python-evdev
+systemctl --user enable --now smart-paste-daemon.service
 ```
-
-### 2. Izin Akses `/dev/uinput`
-Agar Python dapat mensimulasikan keyboard tanpa `sudo` (diperlukan agar skrip otomatis berjalan lancar):
-```bash
-echo 'KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"' | sudo tee /etc/udev/rules.d/80-uinput.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-sudo usermod -aG input $USER
-```
-*Catatan: Anda perlu logout dan login kembali agar grup `input` aktif, atau jalankan `newgrp input` di terminal sesi saat ini.*
-
-## Konfigurasi Shortcut KDE
-
-Skrip ini sekarang secara otomatis mendeteksi jalurnya sendiri, sehingga Anda hanya perlu mendaftarkan path absolutnya sekali.
-
-1. Buka **System Settings** -> **Keyboard** -> **Shortcuts**.
-2. Klik **Commands** -> **Add New**.
-3. **Clipboard Mode**:
-   - Name: `Smart Clipboard Paste`
-   - Command: `/path/to/your/project/bin/smart-paste.sh clipboard`
-   - Shortcut: `Meta+V`
-4. **Emoji Mode**:
-   - Name: `Smart Emoji Paste`
-   - Command: `/path/to/your/project/bin/smart-paste.sh emoji`
-   - Shortcut: `Meta+.`
-
-## Struktur Proyek
-- `bin/smart-paste.sh`: Orchestrator utama (Bash).
-- `bin/paste_helper.py`: Simulator `Ctrl+V` (Python + evdev).
-- `GEMINI.md`: Instruksi konteks asisten AI.
-
-## Lisensi
-MIT
